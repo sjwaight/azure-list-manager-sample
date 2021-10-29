@@ -13,6 +13,7 @@ const dbtable = "events"
 
 const cosmosendpoint = process.env.COSMOS_ENDPOINT
 const cosmoskey = process.env.COSMOS_KEY 
+const cosmosconnection = process.env.COSMOS_CONNECTION
 const cosmosdatabase = process.env.COSMOS_DATABASE
 const cosmoscontainer = process.env.COSMOS_CONTAINER
 
@@ -29,7 +30,7 @@ var updateList = async function(context, event){
     //item.doctype = "rawdata";
     item.entries = JSON.parse(item.entries);
 
-    const client = new CosmosClient("AccountEndpoint=https://listmanagercosmos.documents.azure.com:443/;AccountKey=aJRG5ovUiuAle8BiMydVwisZeo3mjlZgnZsdtLrMw1dZZbd1l2OhAnalBtC38i1BJ8DFT4hX9ayDWAGwsLDP8w==;");
+    const client = new CosmosClient(cosmosconnection);
     var datacontainer = client.database(cosmosdatabase).container(cosmoscontainer);
 
     // get agg item
