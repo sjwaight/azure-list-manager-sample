@@ -1,9 +1,10 @@
 var mysql = require("mysql");
 
-const host = process.env.DATABASE_HOST
-var database = process.env.DATABASE_NAME
-const dbuser = process.env.DATABASE_USER
-const dbpassword = process.env.DATABASE_PWD
+const host = process.env.DATABASE_HOST;
+const database = process.env.DATABASE_NAME;
+var connect_database = "mysql";
+const dbuser = process.env.DATABASE_USER;
+const dbpassword = process.env.DATABASE_PWD;
 
 function closeMySQLConnection(connection) {
 
@@ -59,27 +60,25 @@ module.exports = async function (context, req) {
     switch(setupaction)
     {
         case "createdb":
-            query = "CREATE DATABASE IF NOT EXISTS events;"
+            query = "CREATE DATABASE IF NOT EXISTS " + database + ";"
             break;
         case "createtable":
             query = "CREATE TABLE IF NOT EXISTS events (id varchar(255), title varchar(255), timestamp BIGINT, entries varchar(32765));";
-            database = "events";
+            connect_database = database;
             break;
         case "cleartable":
-            // clear the events table
             query = "DELETE FROM events";
-            database = "events";
+            connect_database = database;
             break;
     }
 
     if(query.length !== 0)
     { 
-        
         var connection = mysql.createConnection({
             host     : host,
             user     : dbuser,
             password : dbpassword,
-            database : database,
+            database : connect_database,
             ssl: true
         });
 
