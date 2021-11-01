@@ -4,15 +4,12 @@ var md5 = require('md5');
 const { DefaultAzureCredential } = require("@azure/identity");
 const { CosmosClient, CosmosClientOptions } = require("@azure/cosmos");
 
-const host = process.env.DATBASE_HOST
+const host = process.env.DATABASE_HOST
 var database = process.env.DATABASE_NAME
-const dbaaduser = process.env.AZURE_CLIENT_ID
 const dbuser = process.env.DATABASE_USER
 const dbpassword = process.env.DATABASE_PWD
 const dbtable = "events"
 
-const cosmosendpoint = process.env.COSMOS_ENDPOINT
-const cosmoskey = process.env.COSMOS_KEY 
 const cosmosconnection = process.env.COSMOS_CONNECTION
 const cosmosdatabase = process.env.COSMOS_DATABASE
 const cosmoscontainer = process.env.COSMOS_CONTAINER
@@ -186,11 +183,6 @@ module.exports = async function (context, eventHubMessages) {
 
     context.log("Eventhub messages triggered Function.");
 
-    // locally falls back to credentials in local.settings.json
-    //const cred = new DefaultAzureCredential();
-
-    //const password = cred.getToken("https://ossrdbms-aad.database.windows.net/");
- 
     var connection = mysql.createConnection({
          host     : host,
          user     : dbuser,
