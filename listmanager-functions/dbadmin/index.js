@@ -1,8 +1,7 @@
 var mysql = require("mysql");
 
-const host = process.env.DATBASE_HOST
+const host = process.env.DATABASE_HOST
 var database = process.env.DATABASE_NAME
-const dbaaduser = process.env.AZURE_CLIENT_ID
 const dbuser = process.env.DATABASE_USER
 const dbpassword = process.env.DATABASE_PWD
 
@@ -60,15 +59,16 @@ module.exports = async function (context, req) {
     switch(setupaction)
     {
         case "createdb":
-            query = "CREATE DATABASE IF NOT EXISTS " + database + ";"
-            database = "mysql";
+            query = "CREATE DATABASE IF NOT EXISTS events;"
             break;
         case "createtable":
             query = "CREATE TABLE IF NOT EXISTS events (id varchar(255), title varchar(255), timestamp BIGINT, entries varchar(32765));";
+            database = "events";
             break;
         case "cleartable":
             // clear the events table
             query = "DELETE FROM events";
+            database = "events";
             break;
     }
 
