@@ -1,8 +1,8 @@
-var mysql = require("mysql");
+var mysql = require("mysql2/promise");
 var md5 = require('md5');
+var fs = require('fs');
 
-const { DefaultAzureCredential } = require("@azure/identity");
-const { CosmosClient, CosmosClientOptions } = require("@azure/cosmos");
+const { CosmosClient } = require("@azure/cosmos");
 
 const host = process.env.DATABASE_HOST
 var database = process.env.DATABASE_NAME
@@ -13,6 +13,8 @@ const dbtable = "events"
 const cosmosconnection = process.env.COSMOS_CONNECTION
 const cosmosdatabase = process.env.COSMOS_DATABASE
 const cosmoscontainer = process.env.COSMOS_CONTAINER
+
+const cacert = fs.readFileSync("BaltimoreCyberTrustRoot.crt.pem");
 
 // Calculate results and store in Cosmos DB
 var updateList = async function(context, event){
@@ -121,19 +123,11 @@ var updateList = async function(context, event){
 // Store the event in MySQL database
 var storeEvent = async function(context, event, connection){
   // update database
-  var query = "INSERT INTO " + dbtable + " (id, title, timestamp, entries) VALUES ?;"
-  var values = [[event.id, event.title, event.timestamp, event.entries]]
+  var query = "INSERT INTO " + dbtable + " (id, title, eventtime, entries) VALUES ?;"
+  var values = [[event.id, event.title, new Date(event.timestamp), event.entries]]
   context.log("Storing event in MySQL:" + event.id + "," + event.title  + "," + event.timestamp  + "," + event.entries);
-  return new Promise((resolve,reject) => {
-    connection.query(query, [values], function (error, results, fields) {
-      if (error) 
-      {
-        context.log("Couldn't store event in MySQL: " + error);
-        return reject(error);
-      }
-      resolve(results);
-    });
-  });
+
+  return await connection.query(query, [values]).catch(error => context.log(error));
 }
   
 var processRecords = async function(context, eventHubMessages, connection) {
@@ -155,25 +149,22 @@ var processRecords = async function(context, eventHubMessages, connection) {
 
         context.log("EVENT TIMESTAMP:" + event.timestamp);
 
-        await updateList(context, event);
-        await storeEvent(context, event, connection);
-
+        try
+        {
+          await updateList(context, event);
+          await storeEvent(context, event, connection);
+        }
+        catch (error)
+        {
+          context.log.error("Error writing data", error);
+          reject(error);
+        }
         count++;
 
         context.log("MESSAGE PROCESS COUNT: " + count);
       });
+      resolve();
     });
-}
-
-function closeMySQLConnection(connection) {
-
-  return new Promise((resolve,reject) => {
-      connection.end( err => {
-          if ( err )
-              return reject( err )
-          resolve("Closed OK");
-      })
-  });
 }
 
 /////////
@@ -183,19 +174,30 @@ module.exports = async function (context, eventHubMessages) {
 
     context.log("Eventhub messages triggered Function.");
 
-    var connection = mysql.createConnection({
-         host     : host,
-         user     : dbuser,
-         password : dbpassword,
-         database : database,
-         ssl: true
-       });
- 
-    connection.connect();
+    try 
+    {
+      var connection = await mysql.createConnection({
+          host     : host,
+          user     : dbuser,
+          password : dbpassword,
+          database : database,
+          waitForConnections: true,
+          ssl: {
+              rejectUnauthorized: true,
+              ca: cacert   
+          }
+        });
+  
+      await connection.connect();
 
-    await processRecords(context, eventHubMessages, connection);
+      await processRecords(context, eventHubMessages, connection);
+
+      await connection.end();
+    } 
+    catch (error)
+    {
+      context.log.error('Error', error);
+    }
     
-    await closeMySQLConnection(connection);
-
     context.done();
 };
