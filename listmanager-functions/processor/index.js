@@ -1,3 +1,7 @@
+// automatically uses process.env.APPINSIGHTS_INSTRUMENTATIONKEY
+let appInsights = require("applicationinsights");
+appInsights.setup().start(); 
+
 var mysql = require("mysql2/promise");
 var md5 = require('md5');
 var fs = require('fs');
