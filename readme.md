@@ -36,4 +36,8 @@ The behaviour of this solution is exactly the same as that described in the [ori
 
 This sample application is compatible with [LTS versions of Node.js](https://nodejs.org/about/releases/).
 
-You need an Azure subscription to deploy this solution.
+We use the [GitHub CLI](https://github.com/cli/cli) to configure the Action used to deploy our Azure Function code into Azure.
+
+You will also need the [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli) installed as it will give you the tools you need to deploy and configure the services used in Azure.
+
+Finally, you need an Azure subscription to deploy this solution - a [free Subscription](https://azure.com/free) should suffice.
