@@ -5,20 +5,19 @@ var unique_name = uniqueString(resourceGroup().id)
 // MySQL Server
 param mysql_server_name string = 'lstmnmysql' 
 param mysql_admin_user string = 'dbadmin'
+
 @secure()
 param mysql_admin_pwd string
 param mysql_privatelink_endpoint_name string = 'listmanmysqlpvt'
 param privateDnsZones_privatelink_mysql_database_azure_com_name string = 'privatelink.mysql.database.azure.com'
-//param networkinterface_listmanmysqlpvt_name string = 'listmanmysqlpvt.nic.${guid(subscription().id)}'
 
 // Cosmos DB
 param comosdb_account_prefix string = 'lstmncos'
 param cosmosdb_privatelink_endpoint_name string = 'listmancosmospvt'
 param privateDnsZones_privatelink_documents_azure_com_name string = 'privatelink.documents.azure.com'
-//param networkinterface_listmancosmospvt_name string = 'listmancosmospvt.nic.${guid(subscription().id)}'
 
 // Managed Service Identity (MSI)
-param user_assigned_identity_name string = 'listmandemouser'
+param user_assigned_identity_prefix string = 'lstmnuser'
 
 // Event Hub
 param eventhub_namespace_prefix string = 'lstmnns'
@@ -27,7 +26,7 @@ param eventhub_namespace_prefix string = 'lstmnns'
 param key_vault_prefix string = 'lstkv'
 
 // Azure Function
-param azure_function_hosting_plan_name string = 'listmanfunchost'
+param azure_function_hosting_plan_name string = 'lstmnfunht'
 param azure_function_name_prefix string = 'lmfunc'
 
 // Storage Account
@@ -37,8 +36,8 @@ param storage_account_prefix string = 'lstfun'
 param virtual_network_name string = 'lstmnprivatenet'
 
 // Application Insights / Azure Monitor
-param workspace_name string = 'listmanworkspace'
-param components_listmanfunction_name string = 'listmanfunction'
+param workspace_name string = 'lstmnworkspace'
+param function_application_insights_prefix string = 'lstmnfuncai'
 
 ////////
 // MYSQL
@@ -189,11 +188,6 @@ resource cosmosdb_account_database_container 'Microsoft.DocumentDB/databaseAccou
   ]
 }
 
-// resource cosmosdb_private_endpoint_connection 'Microsoft.DocumentDB/databaseAccounts/privateEndpointConnections@2021-07-01-preview' = {
-//   parent: cosmosdb_account
-//   name: '${comosdb_account_prefix}pvt'
-// }
-
 ////////
 // EVENT HUB
 
@@ -250,7 +244,7 @@ resource eventhub_namespace_eventhub_sendevents_rule 'Microsoft.EventHub/namespa
 // User-Assigned Managed Service Identity
 
 resource function_keyvault_identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
-  name: user_assigned_identity_name
+  name: '${user_assigned_identity_prefix}${unique_name}'
   location: deployment_location
 }
 
@@ -267,6 +261,75 @@ resource private_virtual_network 'Microsoft.Network/virtualNetworks@2020-11-01' 
         '172.17.0.0/16'
       ]
     }
+    subnets: [
+      {
+        name: 'default'
+        properties: {
+          addressPrefix: '172.17.0.0/24'
+          serviceEndpoints: []
+          delegations: []
+          privateEndpointNetworkPolicies: 'Enabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
+      {
+        name: 'keyvaultsubnet'
+        properties: {
+          addressPrefix: '172.17.2.0/24'
+          serviceEndpoints: [
+            {
+              service: 'Microsoft.KeyVault'
+              locations: [
+                '*'
+              ]
+            }
+          ]
+          delegations: []
+          privateEndpointNetworkPolicies: 'Enabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
+      {
+        name: 'functionssubnet'
+        properties: {
+          addressPrefix: '172.17.4.0/24'
+          serviceEndpoints: [
+            {
+              service: 'Microsoft.Web'
+              locations: [
+                '*'
+              ]
+            }
+            {
+              service: 'Microsoft.KeyVault'
+              locations: [
+                '*'
+              ]
+            }
+          ]
+          delegations: [
+            {
+              name: 'Microsoft.Web.serverFarms'
+              properties: {
+                serviceName: 'Microsoft.Web/serverFarms'
+              }
+            }
+          ]
+          privateEndpointNetworkPolicies: 'Enabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
+      {
+        name: 'databasesubnet'
+        properties: {
+          addressPrefix: '172.17.1.0/24'
+          serviceEndpoints: []
+          delegations: []
+          privateEndpointNetworkPolicies: 'Disabled'
+          privateLinkServiceNetworkPolicies: 'Enabled'
+        }
+      }
+    ]
     virtualNetworkPeerings: []
     enableDdosProtection: false
   }
@@ -682,7 +745,7 @@ resource storageAccounts_listmanfuncstore_name_default_azure_webjobs_secrets 'Mi
 
 // Hosting Plan
 resource azure_function_hosting_plan 'Microsoft.Web/serverfarms@2021-02-01' = {
-  name: azure_function_hosting_plan_name
+  name: '${azure_function_hosting_plan_name}${unique_name}'
   location: deployment_location
   dependsOn:[
     private_virtual_network
@@ -752,7 +815,6 @@ resource azure_function 'Microsoft.Web/sites@2021-02-01' = {
     clientCertEnabled: false
     clientCertMode: 'Required'
     hostNamesDisabled: false
-    customDomainVerificationId: 'BAB7B948D43A7BC37713D018D7361F77C21815A1BA1F9C0B382F53E9A4036E62'
     containerSize: 1536
     dailyMemoryTimeQuota: 0
     httpsOnly: true
@@ -782,6 +844,13 @@ resource azure_function_configuration 'Microsoft.Web/sites/config@2021-02-01' = 
   dependsOn:[
     function_keyvault_identity
     private_virtual_network_functions_subnet
+    function_application_insights
+    storage_account_functions
+    keyvault_secret_cosmosdb_connection
+    keyvault_secret_eventhub_connection
+    keyvault_secret_mysql_user
+    keyvault_secret_mysql_pwd
+    keyvault_secret_mysql_hostname
   ]
   name: 'web'
   properties: {
@@ -809,6 +878,18 @@ resource azure_function_configuration 'Microsoft.Web/sites/config@2021-02-01' = 
     webSocketsEnabled: false
     appSettings: [
       {
+        name: 'AzureWebJobsStorage'
+        value: 'DefaultEndpointsProtocol=https;AccountName=${storage_account_functions.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage_account_functions.listKeys().keys[0].value}'
+      }
+      {
+        name: 'FUNCTIONS_EXTENSION_VERSION'
+        value: '~3'
+      }
+      {
+        name: 'FUNCTIONS_WORKER_RUNTIME'
+        value: 'node'
+      }
+      {
         name: 'COSMOS_DATABASE'
         value: 'listsample'
       }
@@ -823,6 +904,34 @@ resource azure_function_configuration 'Microsoft.Web/sites/config@2021-02-01' = 
       {
         name: 'WEBSITE_DNS_SERVER'
         value: '168.63.129.16'
+      }
+      {
+        name: 'WEBSITE_VNET_ROUTE_ALL'
+        value: '1'
+      }
+      {
+        name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
+        value: function_application_insights.properties.InstrumentationKey
+      }
+      {
+        name: 'COSMOS_CONNECTION'
+        value: '@Microsoft.KeyVault(SecretUri=${keyvault_secret_cosmosdb_connection.properties.secretUri})'
+      }
+      {
+        name: 'SAMPLE_EVENT_HUB'
+        value: '@Microsoft.KeyVault(SecretUri=${keyvault_secret_eventhub_connection.properties.secretUri})'
+      }
+      {
+        name: 'DATABASE_USER'
+        value: '@Microsoft.KeyVault(SecretUri=${keyvault_secret_mysql_user.properties.secretUri})'
+      }
+      {
+        name: 'DATABASE_PWD'
+        value: '@Microsoft.KeyVault(SecretUri=${keyvault_secret_mysql_pwd.properties.secretUri})'
+      }
+      {
+        name: 'DATABASE_HOST'
+        value: '@Microsoft.KeyVault(SecretUri=${keyvault_secret_mysql_hostname.properties.secretUri})'
       }
     ]
     alwaysOn: true
@@ -841,7 +950,6 @@ resource azure_function_configuration 'Microsoft.Web/sites/config@2021-02-01' = 
     autoHealEnabled: false
     vnetName: private_virtual_network_functions_subnet.name
     vnetRouteAllEnabled: true
-    vnetPrivatePortsCount: 0
     localMySqlEnabled: false
     keyVaultReferenceIdentity: function_keyvault_identity.id
     ipSecurityRestrictions: [
@@ -878,7 +986,7 @@ resource azure_function_configuration 'Microsoft.Web/sites/config@2021-02-01' = 
 //////
 // KEY VAULT
 
-resource vaults_listmankeyvault_name_resource 'Microsoft.KeyVault/vaults@2021-06-01-preview' = {
+resource listman_keyvault 'Microsoft.KeyVault/vaults@2021-06-01-preview' = {
   name: '${key_vault_prefix}${unique_name}'
   location: deployment_location
   dependsOn:[
@@ -929,8 +1037,8 @@ resource vaults_listmankeyvault_name_resource 'Microsoft.KeyVault/vaults@2021-06
 }
 
 // Create Secrets
-resource vaults_listmankeyvault_name_LM_COSMOS 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
-  parent: vaults_listmankeyvault_name_resource
+resource keyvault_secret_cosmosdb_connection 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
+  parent: listman_keyvault
   name: 'LM-COSMOS'
   dependsOn: [
     cosmosdb_account
@@ -943,22 +1051,22 @@ resource vaults_listmankeyvault_name_LM_COSMOS 'Microsoft.KeyVault/vaults/secret
   }
 }
 
-resource vaults_listmankeyvault_name_LM_EVENTHUB 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
-  parent: vaults_listmankeyvault_name_resource
+resource keyvault_secret_eventhub_connection 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
+  parent: listman_keyvault
   name: 'LM-EVENTHUB'
   dependsOn: [
-    eventhub_namespace_eventhub
+    eventhub_namespace_eventhub_recieveevents_rule
   ]
   properties: {
     attributes: {
       enabled: true
     }
-    value: eventhub_namespace_eventhub.listKeys().primaryConnectionString
+    value: eventhub_namespace_eventhub_recieveevents_rule.listKeys().primaryConnectionString
   }
 }
 
-resource vaults_listmankeyvault_name_LM_MYSQLHOST 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
-  parent: vaults_listmankeyvault_name_resource
+resource keyvault_secret_mysql_hostname 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
+  parent: listman_keyvault
   name: 'LM-MYSQLHOST'
   dependsOn:[
     mysql_server
@@ -971,8 +1079,8 @@ resource vaults_listmankeyvault_name_LM_MYSQLHOST 'Microsoft.KeyVault/vaults/sec
   }
 }
 
-resource vaults_listmankeyvault_name_LM_MYSQLPWD 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
-  parent: vaults_listmankeyvault_name_resource
+resource keyvault_secret_mysql_pwd 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
+  parent: listman_keyvault
   name: 'LM-MYSQLPWD'
   properties: {
     attributes: {
@@ -982,8 +1090,8 @@ resource vaults_listmankeyvault_name_LM_MYSQLPWD 'Microsoft.KeyVault/vaults/secr
   }
 }
 
-resource vaults_listmankeyvault_name_LM_MYSSQLUSER 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
-  parent: vaults_listmankeyvault_name_resource
+resource keyvault_secret_mysql_user 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
+  parent: listman_keyvault
   name: 'LM-MYSSQLUSER'
   properties: {
     attributes: {
@@ -1001,8 +1109,8 @@ resource workspace_insights 'Microsoft.OperationalInsights/workspaces@2020-08-01
   name: workspace_name
 }
 
-resource components_listmanfunction_name_resource 'microsoft.insights/components@2020-02-02' = {
-  name: components_listmanfunction_name
+resource function_application_insights 'microsoft.insights/components@2020-02-02' = {
+  name: '${function_application_insights_prefix}${unique_name}'
   location: deployment_location
   dependsOn:[
     workspace_insights
@@ -1020,7 +1128,7 @@ resource components_listmanfunction_name_resource 'microsoft.insights/components
 }
 
 resource components_listmanfunction_name_degradationindependencyduration 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'degradationindependencyduration'
   location: deployment_location
   properties: {
@@ -1041,7 +1149,7 @@ resource components_listmanfunction_name_degradationindependencyduration 'micros
 }
 
 resource components_listmanfunction_name_degradationinserverresponsetime 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'degradationinserverresponsetime'
   location: deployment_location
   properties: {
@@ -1062,7 +1170,7 @@ resource components_listmanfunction_name_degradationinserverresponsetime 'micros
 }
 
 resource components_listmanfunction_name_digestMailConfiguration 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'digestMailConfiguration'
   location: deployment_location
   properties: {
@@ -1083,7 +1191,7 @@ resource components_listmanfunction_name_digestMailConfiguration 'microsoft.insi
 }
 
 resource components_listmanfunction_name_extension_canaryextension 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'extension_canaryextension'
   location: deployment_location
   properties: {
@@ -1104,7 +1212,7 @@ resource components_listmanfunction_name_extension_canaryextension 'microsoft.in
 }
 
 resource components_listmanfunction_name_extension_billingdatavolumedailyspikeextension 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'extension_billingdatavolumedailyspikeextension'
   location: deployment_location
   properties: {
@@ -1125,7 +1233,7 @@ resource components_listmanfunction_name_extension_billingdatavolumedailyspikeex
 }
 
 resource components_listmanfunction_name_extension_exceptionchangeextension 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'extension_exceptionchangeextension'
   location: deployment_location
   properties: {
@@ -1146,7 +1254,7 @@ resource components_listmanfunction_name_extension_exceptionchangeextension 'mic
 }
 
 resource components_listmanfunction_name_extension_memoryleakextension 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'extension_memoryleakextension'
   location: deployment_location
   properties: {
@@ -1167,7 +1275,7 @@ resource components_listmanfunction_name_extension_memoryleakextension 'microsof
 }
 
 resource components_listmanfunction_name_extension_securityextensionspackage 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'extension_securityextensionspackage'
   location: deployment_location
   properties: {
@@ -1188,7 +1296,7 @@ resource components_listmanfunction_name_extension_securityextensionspackage 'mi
 }
 
 resource components_listmanfunction_name_extension_traceseveritydetector 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'extension_traceseveritydetector'
   location: deployment_location
   properties: {
@@ -1209,7 +1317,7 @@ resource components_listmanfunction_name_extension_traceseveritydetector 'micros
 }
 
 resource components_listmanfunction_name_longdependencyduration 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'longdependencyduration'
   location: deployment_location
   properties: {
@@ -1230,7 +1338,7 @@ resource components_listmanfunction_name_longdependencyduration 'microsoft.insig
 }
 
 resource components_listmanfunction_name_migrationToAlertRulesCompleted 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'migrationToAlertRulesCompleted'
   location: deployment_location
   properties: {
@@ -1251,7 +1359,7 @@ resource components_listmanfunction_name_migrationToAlertRulesCompleted 'microso
 }
 
 resource components_listmanfunction_name_slowpageloadtime 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'slowpageloadtime'
   location: deployment_location
   properties: {
@@ -1272,7 +1380,7 @@ resource components_listmanfunction_name_slowpageloadtime 'microsoft.insights/co
 }
 
 resource components_listmanfunction_name_slowserverresponsetime 'microsoft.insights/components/ProactiveDetectionConfigs@2018-05-01-preview' = {
-  parent: components_listmanfunction_name_resource
+  parent: function_application_insights
   name: 'slowserverresponsetime'
   location: deployment_location
   properties: {
