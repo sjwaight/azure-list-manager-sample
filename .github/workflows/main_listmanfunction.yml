@@ -41,4 +41,4 @@ jobs:
           app-name: 'listmanfunction'
           slot-name: 'Production'
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_AA1848B09C814590B7E02D12C5F54AC3 }}
+          publish-profile: ${{ secrets.AZURE_APP_SERVICE_PUB_PROFILE }}
