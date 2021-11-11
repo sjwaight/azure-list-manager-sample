@@ -33,7 +33,7 @@ param azure_function_name_prefix string = 'lmfunc'
 param storage_account_prefix string = 'lstfun'
 
 // Virtual Network
-param virtual_network_name string = 'lstmnprivatenet'
+param virtual_network_prefix string = 'lstmnpvtnt'
 
 // Application Insights / Azure Monitor
 param workspace_name string = 'lstmnworkspace'
@@ -253,7 +253,7 @@ resource function_keyvault_identity 'Microsoft.ManagedIdentity/userAssignedIdent
 
 // Virtual Network
 resource private_virtual_network 'Microsoft.Network/virtualNetworks@2020-11-01' = {
-  name: virtual_network_name
+  name: '${virtual_network_prefix}${unique_name}'
   location: deployment_location
   properties: {
     addressSpace: {
@@ -776,6 +776,11 @@ resource azure_function_hosting_plan 'Microsoft.Web/serverfarms@2021-02-01' = {
 resource azure_function 'Microsoft.Web/sites@2021-02-01' = {
   name: '${azure_function_name_prefix}${unique_name}'
   location: deployment_location
+  dependsOn:[
+    private_virtual_network_functions_subnet
+    function_keyvault_identity
+    azure_function_hosting_plan
+  ]
   kind: 'functionapp,linux'
   identity: {
     type: 'UserAssigned'
@@ -822,6 +827,7 @@ resource azure_function 'Microsoft.Web/sites@2021-02-01' = {
     storageAccountRequired: false
     virtualNetworkSubnetId: private_virtual_network_functions_subnet.id
     keyVaultReferenceIdentity: function_keyvault_identity.id
+    
   }
 }
 
@@ -1399,3 +1405,9 @@ resource components_listmanfunction_name_slowserverresponsetime 'microsoft.insig
     CustomEmails: []
   }
 }
+
+output event_hub_client_connection string = eventhub_namespace_eventhub_sendevents_rule.listKeys().primaryConnectionString
+output event_hub_name string = 'clientevents'
+output deployed_location string = deployment_location
+output deployed_resource_group string = resourceGroup().name
+output function_app_name string = azure_function.name
