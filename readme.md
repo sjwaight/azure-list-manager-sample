@@ -66,7 +66,6 @@ $ cd azure-list-manager-sample
 Start by deploying the necessary Azure services by using the bicep file. You will need to use the Azure CLI and log into your Subscription first.
 
 >> Note: you will need to select an Azure Region when deploying. You should supply the `Name` of the Region which can be obtained using this Azure CLI command: 
-
 >> `az account list-locations -o table`
 
 ```
