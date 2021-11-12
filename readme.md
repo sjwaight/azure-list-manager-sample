@@ -72,7 +72,7 @@ Start by deploying the necessary Azure services by using the bicep file. You wil
 ```
 $ az login
 $ az group create --location your_region --resource-group your_group_name
-$ az deployment group create --resource-group your_group_name --template-file infra-deploy/deploy.bicep --query properties.outputs -o table
+$ az deployment group create --resource-group your_group_name --template-file infra-deploy/deploy.bicep --query properties.outputs
 ```
 
 You will be prompted for a strong password for the MySQL admin user and then the deployment will commence.
