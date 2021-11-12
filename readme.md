@@ -85,7 +85,32 @@ The bicep file will deploy all resources, as well as setting up the following it
 - Set the MSI for the Azure Function, and grant it access to read Secrets from the Azure Key Vault
 - Configure all infrastructure to connect only via a private Virtual Network.
 
-When deployment is completed you will have five outputs displayed on screen:
+When deployment is completed you will have five outputs displayed on screen as shown below.
+
+```json
+{
+  "deployed_location": {
+    "type": "String",
+    "value": "westus2"
+  },
+  "deployed_resource_group": {
+    "type": "String",
+    "value": "listmansample"
+  },
+  "event_hub_client_connection": {
+    "type": "String",
+    "value": "Endpoint=sb://lstmnnsh3eesgx7nhypc.servicebus.windows.net/;SharedAccessKeyName=SendEvents;SharedAccessKey=SECURE_KEY_HERE;EntityPath=clientevents"
+  },
+  "event_hub_name": {
+    "type": "String",
+    "value": "clientevents"
+  },
+  "function_app_name": {
+    "type": "String",
+    "value": "lmfunch3eesgx7nhypc"
+  }
+}
+```
 
 - `event_hub_client_connection` - the connection string to use with the `client-app` to publish events.
 - `event_hub_name` - the event hub name to use with the `client-app` to publish events.
