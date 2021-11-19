@@ -56,19 +56,19 @@ Finally, you need an Azure subscription to deploy this solution - a [free Subscr
 
 ## Setup
 
-Start by forking this repository into your own on GitHub. Once forked, then clone the repository to your local developer machine, or open in a GitHub Codespace.
+Start by forking this repository on GitHub. Once forked, clone the repository to your local developer machine, or open in a GitHub Codespace.
 
-```
+```bash
 $ git clone https://github.com/your_user/azure-list-manager-sample.git
 $ cd azure-list-manager-sample
 ```
 
-Start by deploying the necessary Azure services by using the bicep file. You will need to use the Azure CLI and log into your Subscription first.
+Start by deploying the necessary Azure services by using the Bicep file. You will need to use the Azure CLI and log into your Subscription first.
 
->> Note: you will need to select an Azure Region when deploying. You should supply the `Name` of the Region which can be obtained using this Azure CLI command: 
->> `az account list-locations -o table`
+> Note: you will need to select an Azure Region when deploying. You should supply the `Name` of the Region which can be obtained using this Azure CLI command: 
+> `az account list-locations -o table`
 
-```
+```bash
 $ az login
 $ az group create --location your_region --resource-group your_group_name
 $ az deployment group create --resource-group your_group_name --template-file infra-deploy/deploy.bicep --query properties.outputs
@@ -78,7 +78,7 @@ You will be prompted for a strong password for the MySQL admin user and then the
 
 Depending on the Region, and time of day, the template will take around 10 minutes to deploy. You should receive no errors. If you do, please [open an issue](https://github.com/sjwaight/azure-list-manager-sample/issues) on the origianl repository so we can take a look - please make sure to include your error message.
 
-The bicep file will deploy all resources, as well as setting up the following items:
+The Bicep file will deploy all resources, as well as setting up the following items:
 
 - A User-Assigned [Managed Service Identity](https://docs.microsoft.com/azure/active-directory/managed-identities-azure-resources/overview) (MSI) which will be used by the Azure Function to read Secrets from the Azure Key Vault
 - Create the necessary Azure Key Vault Secrets used by the Azure Function
@@ -122,19 +122,50 @@ When deployment is completed you will have five outputs displayed on screen as s
 
 Start by logging into the GitHub CLI. You will need your previously created GitHub Personal Access Token for this.
 
-```
+```bash
 $ gh auth login
 ```
 
-When prompted, select - GitHub.com - HTTPS - Git Credentials (no) - Paste an authentication token.
+When prompted, select GitHub.com > HTTPS > Git Credentials (no) > Paste an authentication token.
 
-We have to set one repository secret for the GitHub Action for the Azure Function to work. The deployment expects a Publishing Profile for the Function to be held in the secret.
+We have to enable the GitHub Action and set one repository secret for the build and deploy to work. The deployment expects a Publishing Profile for the Azure Function to be held in the secret which will need to set by calling the Azure API to reteive the Profile.
 
-Use the the output values for `function_app_name` and `deployed_location` from the bicep deployment in the command as follows. If the update succeeds then the worklow can be triggered using the second comand shown.
+Use the the output values for `function_app_name` and `deployed_resource_group` from the earlier Bicep deployment in the command as follows. If the update succeeds then the worklow can be triggered using the second comand shown.
 
+```bash
+$ gh secret set AZURE_APP_SERVICE_PUB_PROFILE --body "$(az functionapp deployment list-publishing-profiles --name function_app_name --resource-group deployed_resource_group --xml)"
+$ gh workflow enable main_listmanfunction.yml
+$ gh workflow run main_listmanfunction.yml
 ```
-$ gh secret set AZURE_APP_SERVICE_PUB_PROFILE --body "$(az functionapp deployment list-publishing-profiles --name function_app_name --resource-group deployed_location)"
-$ gh workflow run
+
+Once the GitHub Action has completed you should find that your Azure Function code has been deployed and that you can invoke it.
+
+You can check that both Functions were deployed by using the following Azure CLI commands. Both commands should return without error.
+
+```bash
+az functionapp function show --resource-group deployed_resource_group --name function_app_name --function-name dbadmin
+az functionapp function show --resource-group deployed_resource_group --name function_app_name --function-name processor
 ```
 
-When prompted, select the GitHub Action workflow for the current repository and a run will be triggered on GitHub and the Azure Function code will be deployed into Azure.
+### Configure MySQL
+
+As the Azure Database for MySQL instance we are using isn't available from a public network we have to use the `dbadmin` Azure Function as our way to initiliase the database.
+
+First we need to get the URL and key for the Azure Function so we can invoke it. Dont' forget to change the placeholders `function_app_name` and `deployed_resource_group`.
+
+```bash
+$ FUNC_URL=$(az functionapp function show --resource-group deployed_resource_group --name function_app_name --function-name dbadmin --query invokeUrlTemplate | sed 's/\"//g')
+$ FUNC_KEY=$(az functionapp function keys list --resource-group deployed_resource_group --name function_app_name --function-name dbadmin --query default | sed 's/\"//g')
+```
+
+Now we have the URL and key for our Function we can create our MySQL database and table.
+
+```bash
+$ curl "$FUNC_URL?code=$FUNC_KEY&setupaction=createdb"
+```
+
+If the command succeeded you should receive `Query ran successfully` back as a response.
+
+## Test
+
+We need to publish events to the Event Hub to trigger the Azure Function.
