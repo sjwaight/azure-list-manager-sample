@@ -40,7 +40,7 @@ The processed data is then persisted to both the Azure Database for MySQL instan
 
 ## Functionality (Ranking and Stats)
 
-The behaviour of this solution is exactly the same as that described in the for [Ranking](https://github.com/awsdocs/aws-lambda-developer-guide/tree/main/sample-apps/list-manager#ranking) and [Stats](https://github.com/awsdocs/aws-lambda-developer-guide/tree/main/sample-apps/list-manager#stats).
+The behaviour of this solution is exactly the same as that described in the original sample. Read more about them here: [Ranking](https://github.com/awsdocs/aws-lambda-developer-guide/tree/main/sample-apps/list-manager#ranking) and [Stats](https://github.com/awsdocs/aws-lambda-developer-guide/tree/main/sample-apps/list-manager#stats).
 
 ## Prerequisites
 
