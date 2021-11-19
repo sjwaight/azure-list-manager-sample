@@ -151,14 +151,14 @@ az functionapp function show --resource-group deployed_resource_group --name fun
 
 As the Azure Database for MySQL instance we are using isn't available from a public network we have to use the `dbadmin` Azure Function as our way to initiliase the database.
 
-First we need to get the URL and key for the Azure Function so we can invoke it. Dont' forget to change the placeholders `function_app_name` and `deployed_resource_group`.
+First we need to get the URL and key for the `dbadmin` Azure Function so we can invoke it. Don't forget to change the placeholders `function_app_name` and `deployed_resource_group`. We will store the output in to environment variables we use below.
 
 ```bash
 $ FUNC_URL=$(az functionapp function show --resource-group deployed_resource_group --name function_app_name --function-name dbadmin --query invokeUrlTemplate | sed 's/\"//g')
 $ FUNC_KEY=$(az functionapp function keys list --resource-group deployed_resource_group --name function_app_name --function-name dbadmin --query default | sed 's/\"//g')
 ```
 
-Now we have the URL and key for our Function we can create our MySQL database and table.
+Now we have the URL and key for our Function in variables we can use them and Curl to create our MySQL database and table.
 
 ```bash
 $ curl "$FUNC_URL?code=$FUNC_KEY&setupaction=createdb"
