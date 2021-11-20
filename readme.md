@@ -185,7 +185,7 @@ Edit the env file so it looks similar to this sample.
 
 ```bash
 # Replace with your value from Azure Portal.
-EVENTHUB_CONNECTION_STRING="Endpoint=sb://lstmnnsh3eesgx7nhypc.servicebus.windows.net/;SharedAccessKeyName=SendEvents;SharedAccessKey=SECURE_KEY_HERE;EntityPath=clientevents"
+EVENTHUB_CONNECTION_STRING="Endpoint=sb://lstmnnsh3eesgx7nhypc.servicebus.windows.net/;SharedAccessKeyName=SendEvents;SharedAccessKey=SECURE_KEY_HERE"
 EVENTHUB_NAME="clientevents"
 ```
 
