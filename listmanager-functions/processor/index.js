@@ -18,6 +18,7 @@ const cosmosconnection = process.env.COSMOS_CONNECTION
 const cosmosdatabase = process.env.COSMOS_DATABASE
 const cosmoscontainer = process.env.COSMOS_CONTAINER
 
+// required to connect to Azure Database for MySQL
 const cacert = fs.readFileSync("BaltimoreCyberTrustRoot.crt.pem");
 
 // Calculate results and store in Cosmos DB
@@ -30,7 +31,6 @@ var updateList = async function(context, event){
     // individual ID (from same user only)
     item.id = md5(item.title + item.user);
     // as we use a single container we can differentatiate documents using a custom attribute
-    //item.doctype = "rawdata";
     item.entries = JSON.parse(item.entries);
 
     const client = new CosmosClient(cosmosconnection);
@@ -110,7 +110,7 @@ var updateList = async function(context, event){
         else
           aggregateEntries[key] = newEntries[key];
       })
-      item.entries = oldEntries; // JSON.stringify(oldEntries, null, 0);
+      item.entries = oldEntries;
       context.log("TALLIED ENTRIES: " + JSON.stringify(item.entries, null, 0));
     }
 
@@ -118,7 +118,7 @@ var updateList = async function(context, event){
      
     await datacontainer.items.upsert(item);
   
-    aggItem.entries = aggregateEntries; // JSON.stringify(aggregateEntries, null, 0);
+    aggItem.entries = aggregateEntries;
     context.log("AGGREGATE ENTRIES: " + JSON.stringify(aggItem.entries, null, 0));
   
     await datacontainer.items.upsert(aggItem);
