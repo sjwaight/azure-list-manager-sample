@@ -154,18 +154,65 @@ As the Azure Database for MySQL instance we are using isn't available from a pub
 First we need to get the URL and key for the `dbadmin` Azure Function so we can invoke it. Don't forget to change the placeholders `function_app_name` and `deployed_resource_group`. We will store the output in to environment variables we use below.
 
 ```bash
-$ FUNC_URL=$(az functionapp function show --resource-group deployed_resource_group --name function_app_name --function-name dbadmin --query invokeUrlTemplate | sed 's/\"//g')
-$ FUNC_KEY=$(az functionapp function keys list --resource-group deployed_resource_group --name function_app_name --function-name dbadmin --query default | sed 's/\"//g')
+$ FUNC_URL=$(az functionapp function show --resource-group deployed_resource_group --name function_app_name --function-name dbadmin --query invokeUrlTemplate --output tsv)
+$ FUNC_KEY=$(az functionapp function keys list --resource-group deployed_resource_group --name function_app_name --function-name dbadmin --query default --output tsv)
 ```
 
-Now we have the URL and key for our Function in variables we can use them and Curl to create our MySQL database and table.
+Now we have the URL and key for our Function in variables we can use them and curl to create our MySQL database and table.
 
 ```bash
 $ curl "$FUNC_URL?code=$FUNC_KEY&setupaction=createdb"
+$ curl "$FUNC_URL?code=$FUNC_KEY&setupaction=createtable"
 ```
 
 If the command succeeded you should receive `Query ran successfully` back as a response.
 
+> Note: You can empty the MysQL table by calling the same URL with a 'setupaction' argument of `cleartable`.
+
 ## Test
 
-We need to publish events to the Event Hub to trigger the Azure Function.
+Switch to the [client-app](./client-app/readme.md) folder and create a new `env` file and populate its values using the `event_hub_client_connection` and `event_hub_name` outputs from our Bicep deployment.
+
+```bash
+$ cd client-app
+$ cp sample.env env
+$ nano env
+```
+
+Edit the env file so it looks similar to this sample.
+
+> Note: you can remove the 'EntityPath' argument on the end of the connection string.
+
+```bash
+# Replace with your value from Azure Portal.
+EVENTHUB_CONNECTION_STRING="Endpoint=sb://lstmnnsh3eesgx7nhypc.servicebus.windows.net/;SharedAccessKeyName=SendEvents;SharedAccessKey=SECURE_KEY_HERE;EntityPath=clientevents"
+EVENTHUB_NAME="clientevents"
+```
+
+Save the file and you are ready to publish events to Azure Event Hub.
+
+```bash
+$ node sendEvents.js
+```
+
+We are using auto-instrumentation with our Azure Function so we get some insights on what is happening when our data is processed. Open the Azure Portal and navigate to your Resource Group and open the Application Insights associated with your application.
+
+![Appplication Insights Instance](images/2021-11-20_16-59-51.png)
+
+You will then see an overview of the application. On this screen click on the peak of the Server Requests graph which will take you to the Performance view.
+
+![Appplication Insights Server Requess](images/2021-11-20_16-53-46.png)
+
+The Performance view allows you to investigage bottlenecks and slow dependencies as required.
+
+![Appplication Insights Performance](images/2021-11-20_17-05-17.png)
+
+At time of writing the Application Insights SDK for Node.js doesn't have dedicated instrumentation support for MySQL for the MySQL library we are using and also Cosmos DB, though we do see the underlying HTTP calls occuring and can dig into them if required. 
+
+## Cleanup
+
+To delete your application you can simply delete the Azure Resource Group.
+
+```bash
+$ az group delete --resource-group your_group_name --yes
+```

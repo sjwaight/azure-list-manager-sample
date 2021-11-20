@@ -11,6 +11,7 @@ var connect_database = "mysql";
 const dbuser = process.env.DATABASE_USER;
 const dbpassword = process.env.DATABASE_PWD;
 
+// required to connect to Azure Database for MySQL
 const cacert = fs.readFileSync("BaltimoreCyberTrustRoot.crt.pem");
 
 /////////
