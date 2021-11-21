@@ -121,27 +121,46 @@ When deployment is completed you will have five outputs displayed on screen as s
 
 ### Configure and run GitHub deployment
 
-Start by logging into the GitHub CLI. You will need your previously created GitHub Personal Access Token for this.
+We first need to enable the GitHub Action workflows for the forked repository via a web browser. Navigate to the Actions tab and when prompted click **I understand my workflows, go ahead and enable them**. At present you cannot enable workflows from the GitHub CLI when the repository has first been forked.
+
+![Enabled GitHub Actions on a forked repository](images/2021-11-21_16-30-45.png)
+
+Return to the command line and log into the GitHub CLI. You will need your previously created GitHub Personal Access Token (PAT) for this.
 
 ```bash
 $ gh auth login
 ```
 
-When prompted, select GitHub.com > HTTPS > Git Credentials (no) > Paste an authentication token.
+When prompted, select GitHub.com > HTTPS > Use Git Credentials (no) > Paste an authentication token.
 
-We have to enable the GitHub Action and set one repository secret for the build and deploy to work. The deployment expects a Publishing Profile for the Azure Function to be held in the secret which will need to set by calling the Azure API to reteive the Profile.
+We have to update one placeholder in the GitHub Action worfklow and set one repository secret for the build and deploy to work. 
+
+The deployment expects a Publishing Profile for the Azure Function to be held in the secret which will need to set by calling the Azure API to reteive the Profile.
 
 Use the the output values for `function_app_name` and `deployed_resource_group` from the earlier Bicep deployment in the command as follows. If the update succeeds then the worklow can be triggered using the second comand shown.
 
 ```bash
 $ gh secret set AZURE_APP_SERVICE_PUB_PROFILE --body "$(az functionapp deployment list-publishing-profiles --name function_app_name --resource-group deployed_resource_group --xml)"
-$ gh workflow enable main_listmanfunction.yml
-$ gh workflow run main_listmanfunction.yml
 ```
 
-Once the GitHub Action has completed you should find that your Azure Function code has been deployed and that you can invoke it.
+We need to edit our GitHub Action workflow file and set the `app-name` property for the `Run Azure Functions Action` step to match the value for `function_app_name` (in the placeholder workflow it is set to 'listmanfunction').
 
-You can check that both Functions were deployed by using the following Azure CLI commands. Both commands should return without error.
+Open the [main_listmanfunction.yml](.github/workflows/main_listmanfunction.yml) file in your favourite editor and change the appropriate line. Save the file, commit and push to GitHub.
+
+```yaml
+      - name: 'Run Azure Functions Action'
+        uses: Azure/functions-action@v1
+        id: fa
+        with:
+          app-name: 'function_app_name'
+          slot-name: 'Production'
+          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          publish-profile: ${{ secrets.AZURE_APP_SERVICE_PUB_PROFILE }}
+```
+
+Pushing the updated workflow will cause the GitHub Action to run. Once it has completed you should find that your Azure Function code has been deployed and that you can invoke it.
+
+You can check that both Functions were deployed by using the following Azure CLI commands. Both commands should return without error. It may take up to a minute for the Functions to show up in the reponse.
 
 ```bash
 az functionapp function show --resource-group deployed_resource_group --name function_app_name --function-name dbadmin
