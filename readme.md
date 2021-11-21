@@ -16,6 +16,7 @@ If you are visiting here to understand how this service has been migrated from A
 
 | Azure | AWS |
 |----|----|
+| Bicep / ARM | CloudFormation |
 | Cosmos DB | DynamoDB |
 | Event Hub | Kinesis |
 | Functions | Lambda |
@@ -26,7 +27,7 @@ If you are visiting here to understand how this service has been migrated from A
 | Virtual Network | VPC |
 | Private Link Endpoint | VPC endpoint |
 
-There are some functional differences between services which we'll take a look at later. We also have multiple methods to deploy code into Azure, but for the purpose of simplicity we are using GitHub Actions here as the deployment definition lives with this sample, making much more straightforward to clone and get started.
+We have multiple methods to deploy code into Azure, but for simplicity we are using GitHub Actions so our CI/CD pipeline definition lives with this sample, making much more straightforward to clone and get started.
 
 We are using the Azure Functions v3 runtime for this sample.
 
