@@ -1103,7 +1103,7 @@ resource keyvault_secret_mysql_user 'Microsoft.KeyVault/vaults/secrets@2021-06-0
     attributes: {
       enabled: true
     }
-    value: mysql_admin_user
+    value: '${mysql_admin_user}@${mysql_server_name}${unique_name}'
   }
 }
 
