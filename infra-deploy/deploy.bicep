@@ -5,8 +5,6 @@ var unique_name = uniqueString(resourceGroup().id)
 // MySQL Server
 param mysql_server_name string = 'lstmnmysql' 
 param mysql_admin_user string = 'dbadmin'
-
-@secure()
 param mysql_admin_pwd string
 param mysql_privatelink_endpoint_name string = 'listmanmysqlpvt'
 param privateDnsZones_privatelink_mysql_database_azure_com_name string = 'privatelink.mysql.database.azure.com'
