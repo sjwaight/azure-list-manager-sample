@@ -887,7 +887,7 @@ resource azure_function_configuration 'Microsoft.Web/sites/config@2021-02-01' = 
       }
       {
         name: 'FUNCTIONS_EXTENSION_VERSION'
-        value: '~3'
+        value: '~4'
       }
       {
         name: 'FUNCTIONS_WORKER_RUNTIME'
