@@ -9,7 +9,7 @@
   "dependencies": {
     "@azure/cosmos": "^3.14.1",
     "@azure/identity": "^3.1.2",
-    "applicationinsights": "^2.1.8",
+    "applicationinsights": "^2.5.1",
     "md5": "^2.3.0",
     "mysql2": "^2.3.2"
   }
